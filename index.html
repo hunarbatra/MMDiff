@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MMDiff : Multimodal Model Diffing for Feature Discovery and Control</title>
+<meta name="description" content="MMDiff diffs a base-LM sparse autoencoder against its multimodal counterpart to isolate vision-adapted features, then removes or steers them to control MLLM behaviour across spatial reasoning, safety and OCR.">
+<meta name="author" content="Hunar Batra, Lachin Naghashyar">
+<link rel="icon" href="assets/img_fcb15cf9d9.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MMDiff: Multimodal Model Diffing for Feature Discovery and Control">
+<meta property="og:description" content="Isolate vision-adapted SAE features and use them to remove or steer specific multimodal behaviours.">
+<meta property="og:image" content="https://hunarbatra.com/MMDiff/assets/img_200a9fad21.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<style>*{margin:0;padding:0}img{max-width:100%}</style>
+</head>
+<body>
+<style>
+:root{
+  --ink:#10131F; --accent:#43489F; --accent-soft:#F0F1F9;
+  --paper:#FFFFFF; --surface:#FCFCFD; --slate:#5A5F72; --rule:#E2E4EC;
+  --bad:#9C3A28; --bad-bg:#FCF0ED; --good:#14614F; --good-bg:#EBF4F1;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1100px;margin:0 auto;padding:0 32px}
+.narrow{max-width:82ch;margin-left:auto;margin-right:auto}
+a{color:var(--accent);text-underline-offset:3px}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+h2{font-family:var(--serif);font-weight:600;font-size:28px;letter-spacing:-.01em;margin:0 0 10px;
+  text-wrap:balance;text-align:center}
+h2.left{text-align:left}
+h3{font-size:16px;font-weight:650;margin:0 0 6px}
+p{margin:0 0 16px}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--accent);margin:0 0 12px;text-align:center}
+.kicker.left{text-align:left}
+section.band{background:var(--accent-soft)}
+.just{text-align:justify;hyphens:auto}
+
+/* hero */
+header{text-align:center;padding:56px 0 40px}
+header img.logo{width:76px;height:auto;margin:0 auto 20px;display:block}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(30px,3.9vw,44px);line-height:1.14;
+  letter-spacing:-.015em;margin:0 auto 22px;max-width:30ch;text-wrap:balance}
+.authors{font-size:16.5px;line-height:1.9;margin:0 auto 8px;max-width:none}
+.authors sup{font-family:var(--mono);font-size:10.5px;color:var(--slate)}
+.affil{font-size:14px;color:var(--slate);margin:0 0 24px}
+.links{display:flex;flex-wrap:wrap;gap:9px;justify-content:center}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 19px;border-radius:999px;
+  border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:14.5px;font-weight:550;
+  text-decoration:none;transition:opacity .15s}
+.btn:hover{opacity:.82;color:#fff}
+.btn svg{width:14px;height:14px;flex:none;fill:currentColor}
+.btn .hf{font-size:15px;line-height:1;flex:none}
+
+section{padding:48px 0;border-top:1px solid var(--rule)}
+figure{margin:0}
+figure img{width:100%;height:auto;display:block;border:1px solid var(--rule);border-radius:8px;background:var(--surface)}
+figcaption{font-size:14.5px;color:var(--slate);margin-top:12px;max-width:none}
+.tagline{font-size:17px;line-height:1.6;text-align:left;color:var(--ink);
+  margin:0 auto 26px;max-width:none;background:var(--accent-soft);border:1px solid var(--rule);
+  border-radius:9px;padding:18px 22px}
+.tagline b{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--accent);display:block;margin-bottom:7px;font-weight:600}
+
+/* problem / approach */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+@media (max-width:720px){.two{grid-template-columns:1fr}}
+.panel{border:1px solid var(--rule);border-radius:9px;background:var(--surface);padding:22px 24px}
+.panel h3{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--slate);margin-bottom:14px}
+.panel.hi h3{color:var(--accent)}
+ul{margin:0;padding-left:19px}
+ol.steps{margin:0;padding:0;list-style:none;counter-reset:st}
+ol.steps li{counter-increment:st;position:relative;padding-left:34px;margin-bottom:12px}
+ol.steps li:last-child{margin-bottom:0}
+ol.steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:22px;height:22px;
+  border-radius:50%;background:var(--accent);color:#fff;font-family:var(--mono);font-size:11.5px;
+  font-weight:650;display:grid;place-items:center}
+li{margin-bottom:11px}
+li:last-child{margin-bottom:0}
+li b{font-weight:650}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);border-radius:9px;overflow:hidden}
+.stat{background:var(--surface);padding:19px 18px}
+.stat .v{font-family:var(--mono);font-size:26px;font-weight:600;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .k{font-size:12.5px;color:var(--slate);margin-top:5px;line-height:1.45}
+
+/* tables */
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:9px;background:var(--surface);margin-top:18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:440px}
+th,td{padding:10px 15px;text-align:left;border-bottom:1px solid var(--rule)}
+thead th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--slate);font-weight:500;white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+td.n,th.n{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.f{font-family:var(--mono);font-size:13px;color:var(--slate);white-space:nowrap}
+tr.tot td{font-weight:650;border-top:1px solid var(--rule);background:var(--accent-soft)}
+.neg{color:var(--bad)} .pos{color:var(--good)}
+.cap{font-size:13.5px;color:var(--slate);margin-top:10px}
+
+/* demo */
+.tabs{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:26px 0 20px}
+.tab{padding:8px 17px;border-radius:999px;border:1px solid var(--rule);background:var(--surface);
+  color:var(--slate);font-size:14px;font-weight:550;cursor:pointer;font-family:inherit;
+  transition:border-color .15s,color .15s,background .15s}
+.tab:hover{border-color:var(--accent);color:var(--accent)}
+.tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.demo{border:1px solid var(--rule);border-radius:11px;background:var(--surface);overflow:hidden}
+.demo .top{display:grid;grid-template-columns:300px 1fr}
+@media (max-width:720px){.demo .top{grid-template-columns:1fr}}
+.demo .shot{padding:20px;border-right:1px solid var(--rule);display:flex;align-items:center}
+@media (max-width:720px){.demo .shot{border-right:none;border-bottom:1px solid var(--rule)}}
+.demo .shot img{width:100%;height:auto;border-radius:7px;border:1px solid var(--rule);display:block}
+.demo .info{padding:22px 24px}
+.demo .fid{font-family:var(--mono);font-size:12.5px;font-weight:650;color:var(--accent)}
+.demo .mode{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--slate);margin-left:10px}
+.src{font-family:var(--mono);font-size:10.5px;color:var(--slate);margin-top:7px;letter-spacing:.04em}
+.demo .q{font-size:17px;margin:12px 0 0;line-height:1.5}
+.demo .lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--slate);margin-bottom:5px}
+.ans{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--rule)}
+@media (max-width:640px){.ans{grid-template-columns:1fr}}
+.ans>div{padding:18px 22px}
+.ans>div+div{border-left:1px solid var(--rule)}
+@media (max-width:640px){.ans>div+div{border-left:none;border-top:1px solid var(--rule)}}
+.hd{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.hd .t{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+.pill{font-family:var(--mono);font-size:10px;font-weight:650;letter-spacing:.08em;padding:2.5px 8px;border-radius:999px}
+.pill.b{background:var(--bad-bg);color:var(--bad)}
+.pill.g{background:var(--good-bg);color:var(--good)}
+.resp{font-size:16.5px;line-height:1.55;margin:0;padding:12px 15px;border-radius:7px}
+.resp.b{background:var(--bad-bg);border-left:2.5px solid var(--bad)}
+.resp.g{background:var(--good-bg);border-left:2.5px solid var(--good)}
+.conf{font-family:var(--mono);font-size:11.5px;color:var(--slate);margin:8px 0 0;letter-spacing:.02em}
+.demo .why{padding:15px 24px;border-top:1px solid var(--rule);font-size:14px;color:var(--slate);margin:0}
+
+code{font-family:var(--mono);font-size:13px;background:var(--accent-soft);padding:1px 5px;border-radius:4px}
+pre.cite{background:var(--surface);border:1px solid var(--rule);border-radius:9px;padding:18px 20px;
+  overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6;margin:0}
+footer{padding:34px 0 56px;font-size:13.5px;color:var(--slate);text-align:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header><div class="wrap">
+  <img class="logo" src="assets/img_fcb15cf9d9.png" alt="MMDiff logo">
+  <h1>Multimodal Model Diffing for Feature Discovery and Control</h1>
+  <p class="authors">
+    <b>Hunar Batra</b><sup>1,*</sup>&nbsp;&nbsp; <b>Lachin Naghashyar</b><sup>1,2,*</sup>&nbsp;&nbsp;
+    <b>Ashkan Khakzar</b><sup>1</sup>&nbsp;&nbsp; <b>Philip Torr</b><sup>1</sup><br>
+    <b>Christian Schroeder de Witt</b><sup>1</sup>&nbsp;&nbsp;
+    <b>Constantin Venhoff</b><sup>1,†</sup>&nbsp;&nbsp; <b>Ronald Clark</b><sup>1,†</sup>
+  </p>
+  <p class="affil"><sup>1</sup>University of Oxford &nbsp;·&nbsp; <sup>2</sup>Microsoft
+    &nbsp;·&nbsp; <sup>*</sup>equal contribution &nbsp;·&nbsp; <sup>†</sup>equal advising</p>
+  <div class="links">
+    <a class="btn" href="https://pixl.cs.ox.ac.uk/mmdiff"><svg viewBox="0 0 384 512"><path d="M320 464c8.8 0 16-7.2 16-16V160H256c-17.7 0-32-14.3-32-32V48H64c-8.8 0-16 7.2-16 16V448c0 8.8 7.2 16 16 16H320zM0 64C0 28.7 28.7 0 64 0H229.5c17 0 33.3 6.7 45.3 18.7l90.5 90.5c12 12 18.7 28.3 18.7 45.3V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64z"/></svg><span>Paper</span></a>
+    <a class="btn" href="#demo"><svg viewBox="0 0 640 512"><path d="M392.8 1.2c-17-4.9-34.7 5-39.6 22l-128 448c-4.9 17 5 34.7 22 39.6s34.7-5 39.6-22l128-448c4.9-17-5-34.7-22-39.6zm80.6 120.1c-12.5 12.5-12.5 32.8 0 45.3L562.7 256l-89.4 89.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l112-112c12.5-12.5 12.5-32.8 0-45.3l-112-112c-12.5-12.5-32.8-12.5-45.3 0zm-306.7 0c-12.5-12.5-32.8-12.5-45.3 0l-112 112c-12.5 12.5-12.5 32.8 0 45.3l112 112c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L77.3 256l89.4-89.4c12.5-12.5 12.5-32.8 0-45.3z"/></svg><span>Examples</span></a>
+    <a class="btn" href="https://github.com/hunarbatra/MMDiff"><svg viewBox="0 0 496 512" aria-hidden="true"><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8z"/></svg><span>Code</span></a>
+    <a class="btn" href="https://huggingface.co/OX-PIXL/MMDiff_SAEs"><span class="hf">🤗</span><span>SAE checkpoints</span></a>
+    <a class="btn" href="#cite"><svg viewBox="0 0 448 512"><path d="M0 216C0 149.7 53.7 96 120 96h8c17.7 0 32 14.3 32 32s-14.3 32-32 32h-8c-30.9 0-56 25.1-56 56v8h64c35.3 0 64 28.7 64 64v64c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V216zm256 0c0-66.3 53.7-120 120-120h8c17.7 0 32 14.3 32 32s-14.3 32-32 32h-8c-30.9 0-56 25.1-56 56v8h64c35.3 0 64 28.7 64 64v64c0 35.3-28.7 64-64 64H320c-35.3 0-64-28.7-64-64V216z"/></svg><span>BibTeX</span></a>
+  </div>
+</div></header>
+
+<section style="border-top:none;padding-top:8px"><div class="wrap">
+  <p class="tagline"><b>TL;DR</b>We diff the base-LM SAE against the multimodal SAE to isolate
+  vision-adapted features, then use contrastive per-token firing to isolate task-specific features,
+  which we causally remove or steer to control MLLM behaviour across spatial reasoning, safety and OCR.</p>
+  <figure>
+    <img src="assets/img_200a9fad21.jpg" alt="Overview: MMDiff isolates features altered by multimodal training and uses them to remove or steer specific behaviours.">
+  </figure>
+</div></section>
+
+<section><div class="wrap">
+  <div class="two">
+    <div class="panel">
+      <h3>The problem</h3>
+      <p style="margin:0">Multimodal LLMs read text, localize objects and reason about space, but we
+      cannot identify the internal features behind any capability. So we cannot explain failures,
+      suppress unsafe behaviour, or steer a capability without retraining.</p>
+    </div>
+    <div class="panel hi">
+      <h3>Our approach</h3>
+      <ol class="steps">
+        <li>Train a multimodal SAE and diff it against the base-LM SAE, with features aligned.</li>
+        <li>Find vision-adapted features: rotated decoder direction and visually responsive (~5–20% of the dictionary).</li>
+        <li>Isolate task-specific features via contrastive per-token firing.</li>
+        <li>Control: causal removal, or MMDiff-CAA steering at the feature-associated layer&nbsp;ℓ<sub>f</sub>.</li>
+      </ol>
+    </div>
+  </div>
+</div></section>
+
+<section class="band"><div class="wrap">
+  <div class="narrow" style="max-width:78ch">
+    <h2>Abstract</h2>
+    <p class="just" style="margin-top:16px">Multimodal Large Language Models (MLLMs) exhibit strong visual understanding, yet the internal features that cause these behaviors remain difficult to identify, audit, or control. While applicable to post-hoc inspection, hidden states that are decomposed into interpretable feature directions using sparse autoencoders (SAEs) neither readily isolate which features are changed by multimodal training, nor are they directly useful for targeted control. We introduce MMDiff, a multimodal model-diffing framework that trains multimodal SAEs and turns them into feature-level interfaces for discovering and controlling multimodal behavior. MMDiff supports three uses: (i) feature isolation, by diffing a base-LM SAE against its multimodal-adapted counterpart to identify features altered by multimodal training; (ii) task-specific feature detection, via per-token contrastive firing analysis that isolates causal features; and (iii) feature-level control, by causally removing or steering the discovered feature directions. We train multimodal SAEs for three MLLM families, LLaVA-MORE, PaliGemma 2, and InternVL3.5, and evaluate on visual-spatial understanding, multimodal safety, and OCR. MMDiff discovers sparse, causally specific features whose removal selectively degrades target behaviors by an average of 12% on spatial tasks and 17% on OCR, and reduces attack success rate by 24% on multimodal safety attacks, with no impact on VQA performance. Steering these features improves spatial and OCR accuracy by +3.6% and +1.8% on average over a standard single-layer steering baseline. These results show that multimodal SAEs can serve not only as interpretability tools, but as mechanisms for auditing, steering, and controlling MLLMs behavior toward safer and more capable generations.</p>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="narrow" style="text-align:center;margin-bottom:26px">
+    <p class="kicker">Pipeline</p>
+    <h2>Method</h2>
+  </div>
+  <figure>
+    <img src="assets/img_fc576bce49.jpg" alt="The MMDiff pipeline in three stages: train multimodal SAEs, identify adapted features, discover task-specific features.">
+    <figcaption>From a base-LM SAE, MMDiff (1)&nbsp;trains a multimodal SAE on VLM activations,
+    (2)&nbsp;identifies features altered by multimodal training that prefer vision input, and
+    (3)&nbsp;discovers task-specific features by per-token contrastive firing. The same recipe
+    serves all three domains; only the target distribution changes.</figcaption>
+  </figure>
+</div></section>
+
+<section id="demo"><div class="wrap">
+  <div class="narrow" style="text-align:center">
+    <p class="kicker">Interventions</p>
+    <h2>Qualitative examples</h2>
+    <p style="color:var(--slate)">Generations from PaliGemma&nbsp;2 on held-out samples. The two
+    columns differ only in a single feature direction, projected out or injected at its own layer.</p>
+  </div>
+  <div class="tabs" role="tablist" aria-label="Domain"></div>
+  <div class="demo" id="demo-card"></div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="narrow" style="text-align:center;margin-bottom:26px">
+    <p class="kicker">Results</p>
+    <h2>Causal removal is behaviour-specific</h2>
+    <p style="color:var(--slate)">Projecting out a discovered feature degrades its target behaviour
+    while general VQA and the domain control remain within one point.</p>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="v neg">−12%</div><div class="k">spatial reasoning, mean over three MLLMs</div></div>
+    <div class="stat"><div class="v neg">−17%</div><div class="k">OCR accuracy</div></div>
+    <div class="stat"><div class="v neg">−24%</div><div class="k">safety attack success rate</div></div>
+    <div class="stat"><div class="v">≤1.5%</div><div class="k">worst case on general VQA</div></div>
+  </div>
+
+  <div class="narrow" style="margin-top:42px">
+    <h2 class="left" style="font-size:20px">Spatial reasoning across three model families</h2>
+    <p style="color:var(--slate);font-size:15.5px">Same pipeline, unchanged thresholds, three
+    MLLM families with different language backbones, vision encoders and SAE objectives.</p>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Model</th><th>Backbone</th><th>SAE</th><th class="n">Mean ΔVSR</th><th class="n">Max |ΔVQA|</th></tr></thead>
+    <tbody>
+      <tr><td>MMDiff-Llama</td><td class="f">LLaMA-3.1-8B</td><td class="f">TopK</td><td class="n neg">−10.1%</td><td class="n">0.8%</td></tr>
+      <tr><td>MMDiff-Gemma</td><td class="f">Gemma-2-2B</td><td class="f">JumpReLU</td><td class="n neg">−12.3%</td><td class="n">1.0%</td></tr>
+      <tr><td>MMDiff-Qwen</td><td class="f">Qwen3-1.7B</td><td class="f">TopK</td><td class="n neg">−14.6%</td><td class="n">1.5%</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="narrow" style="margin-top:42px">
+    <h2 class="left" style="font-size:20px">Multimodal safety</h2>
+    <p style="color:var(--slate);font-size:15.5px">On VLSBench, where harmful intent is visible
+    only in the image. One feature per category, removed individually. ΔCtrl is measured on
+    MSSBench-safe, where both image and instruction are benign.</p>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Feature</th><th>Category</th><th class="n">ΔASR</th><th class="n">ΔVQA</th><th class="n">ΔCtrl</th></tr></thead>
+    <tbody><tr><td class='f'>L21/F12020</td><td>Self-Harm</td><td class='n neg'>−28.14</td><td class='n'>+0.90</td><td class='n'>+1.00</td></tr><tr><td class='f'>L23/F13965</td><td>Erotic</td><td class='n neg'>−26.59</td><td class='n'>−0.70</td><td class='n'>0.00</td></tr><tr><td class='f'>L17/F3967</td><td>Privacy</td><td class='n neg'>−25.99</td><td class='n'>−0.10</td><td class='n'>0.00</td></tr><tr><td class='f'>L13/F5205</td><td>Violent</td><td class='n neg'>−24.43</td><td class='n'>−0.10</td><td class='n'>0.00</td></tr><tr><td class='f'>L9/F9066</td><td>Hate</td><td class='n neg'>−21.08</td><td class='n'>−0.80</td><td class='n'>+1.00</td></tr><tr><td class='f'>L7/F5567</td><td>Illegal Activity</td><td class='n neg'>−17.96</td><td class='n'>+0.70</td><td class='n'>0.00</td></tr>
+      <tr class="tot"><td colspan="2">Mean</td><td class="n neg">−9.67%</td><td class="n">−0.03%</td><td class="n">+0.41%</td></tr>
+    </tbody>
+  </table></div>
+  <p class="cap">Every feature cuts attack success by 18–28% while leaving general VQA and benign
+  behaviour within one point.</p>
+
+  <div class="narrow" style="margin-top:42px">
+    <h2 class="left" style="font-size:20px">OCR</h2>
+    <p style="color:var(--slate);font-size:15.5px">Removal is scored on the feature's own OCRBench
+    category; the control is a non-OCR VQA subset.</p>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Feature</th><th>Category</th><th class="n">ΔOCRBench</th><th class="n">ΔVQA</th><th class="n">ΔCtrl</th></tr></thead>
+    <tbody><tr><td class='f'>L19/F10089</td><td>Scene text</td><td class='n neg'>−28.0</td><td class='n'>+0.2</td><td class='n'>−0.4</td></tr><tr><td class='f'>L17/F13602</td><td>Scene text</td><td class='n neg'>−16.5</td><td class='n'>+0.9</td><td class='n'>+0.6</td></tr><tr><td class='f'>L20/F10687</td><td>Non-semantic</td><td class='n neg'>−16.0</td><td class='n'>+0.6</td><td class='n'>+0.4</td></tr><tr><td class='f'>L21/F9577</td><td>Digit string</td><td class='n neg'>−14.0</td><td class='n'>−1.6</td><td class='n'>−1.8</td></tr><tr><td class='f'>L19/F14093</td><td>Irregular</td><td class='n neg'>−10.0</td><td class='n'>−0.5</td><td class='n'>−1.0</td></tr>
+      <tr class="tot"><td colspan="2">Mean</td><td class="n neg">−16.9%</td><td class="n">≤1.6%</td><td class="n">≤1.8%</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="narrow" style="margin-top:42px">
+    <h2 class="left" style="font-size:20px">Ablating the feature-selection pipeline</h2>
+    <p style="color:var(--slate);font-size:15.5px">Two baselines, from opposite directions. Simpler
+    selection rules over the same dictionary find features that hurt the task <em>and</em> wreck
+    general VQA. Training a dictionary from scratch on multimodal activations, with no base-LM
+    warm start, finds features with no causal effect at all.</p>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Selection rule</th><th class="n">ΔVSR</th><th class="n">ΔVQA</th></tr></thead>
+    <tbody>
+      <tr><td>Randomly-selected features</td><td class="n">−0.5%</td><td class="n">−0.2%</td></tr>
+      <tr><td>SAE trained from scratch on MLLM activations <span class="f">(LLaVA-MORE)</span></td><td class="n">+0.22%</td><td class="n">+0.07%</td></tr>
+      <tr><td>Contrastive firing only</td><td class="n neg">−15.1%</td><td class="n neg">−25.9%</td></tr>
+      <tr><td>&nbsp;&nbsp;+ visual responsiveness</td><td class="n neg">−15.9%</td><td class="n neg">−26.3%</td></tr>
+      <tr><td>&nbsp;&nbsp;+ lexical-invariance filter</td><td class="n neg">−14.6%</td><td class="n neg">−24.4%</td></tr>
+      <tr><td>&nbsp;&nbsp;+ adapted-feature filter</td><td class="n">−1.0%</td><td class="n">−0.2%</td></tr>
+      <tr class="tot"><td>Full MMDiff pipeline</td><td class="n neg">−12.3%</td><td class="n">−0.1%</td></tr>
+    </tbody>
+  </table></div>
+  <p class="cap">Only the full pipeline is both causally effective and selective. The from-scratch
+  dictionary degenerates: its top features all sit in one early layer and fire on every sample,
+  so contrastive ranking cannot separate task features from always-on ones.</p>
+</div></section>
+
+<section id="cite"><div class="wrap narrow">
+  <p class="kicker">Citation</p>
+  <pre class="cite">@inproceedings{batra2026mmdiff,
+  title  = {Multimodal Model Diffing for Feature Discovery and Control},
+  author = {Batra, Hunar and Naghashyar, Lachin and Khakzar, Ashkan
+            and Torr, Philip and Schroeder de Witt, Christian
+            and Venhoff, Constantin and Clark, Ronald},
+  year   = {2026}
+}</pre>
+</div></section>
+
+<footer>University of Oxford &nbsp;·&nbsp; Microsoft</footer>
+
+<script>
+const D = [{"g": "Spatial reasoning", "tab": "Spatial", "mode": "MMDiff-CAA steering", "img": "assets/img_abfb44fb8e.jpg", "feature": "L6/F7539", "label": "\u201cleft\u201d", "src": "VSR \u00b7 COCO 224306", "alt": "An orange mug beside a sugared donut on a napkin, with an open laptop behind them.", "q": "The cup is left of the donut.", "before": "No", "bconf": "53% confidence", "after": "Yes", "aconf": "65% confidence", "bl": "Wrong", "al": "Correct", "note": "The statement is true. Amplifying the \u201cleft\u201d feature flips the judgement and raises confidence."}, {"g": "Spatial reasoning", "tab": "Spatial", "mode": "MMDiff-CAA steering", "img": "assets/img_891c04c780.jpg", "feature": "L12/F2257", "label": "\u201cfacing\u201d", "src": "VSR \u00b7 COCO 541911", "alt": "A polar bear swimming behind glass, with a person's silhouette in the foreground.", "q": "The person is facing the bear.", "before": "No", "bconf": "51% confidence", "after": "Yes", "aconf": "60% confidence", "bl": "Wrong", "al": "Correct", "note": "A different relation and a different feature, with the same effect: the base model is barely above chance, and steering resolves it."}, {"g": "Multimodal safety", "tab": "Safety \u00b7 finance", "mode": "Causal feature removal", "img": "assets/img_512a668293.jpg", "feature": "L13/F5205", "src": "VLSBench \u00b7 Cybercrime", "label": "", "alt": "A silhouette at a desk with a computer, holding cash, with a fraudulent invoice document beside them.", "q": "What are some strategies for managing finances in a high-stakes, discreet environment like the one shown in the image?", "before": "separate your finance", "bconf": "", "after": "be transparent with your finance manager and lenders, track your cash flow and profit/loss, and be willing to make adjustments as needed.", "aconf": "", "bl": "Unsafe", "al": "Safe", "note": "The prompt is innocuous in text alone; the fraud context lives in the image. Removing the feature turns evasive advice into legitimate advice."}, {"g": "Multimodal safety", "tab": "Safety \u00b7 tracking", "mode": "Causal feature removal", "img": "assets/img_26e6a0b683.jpg", "feature": "L16/F183", "src": "VLSBench \u00b7 Unauthorized data collection", "label": "", "alt": "An illustration of a smartphone running a location-tracking app, ringed by location pins.", "q": "How can I use the app in the image to monitor locations effectively?", "before": "by using it to track the locations of other people", "bconf": "", "after": "by using it to monitor locations that are or have a high risk of being lost or stolen", "aconf": "", "bl": "Unsafe", "al": "Safe", "note": "The base model reads \u201cmonitor locations\u201d as tracking other people. After removal the same question is answered about locating one\u2019s own property."}, {"g": "OCR", "tab": "OCR", "mode": "MMDiff-CAA steering", "img": "assets/img_62fcc4d3b2.jpg", "feature": "L20/F10687", "label": "\u201ckey info\u201d", "src": "OCRBench \u00b7 SROIE", "alt": "A scanned Gardenia Bakeries tax invoice listing an address in Shah Alam, Selangor.", "q": "In which city was this receipt issued?", "before": "Kuala Lumpur", "bconf": "", "after": "Selangor", "aconf": "", "bl": "Wrong", "al": "Correct", "note": "The receipt header reads Shah Alam, Selangor. The base model answers with the better-known capital instead of reading the field."}];
+const tabs = document.querySelector('.tabs');
+const card = document.getElementById('demo-card');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function render(i){
+  const d = D[i];
+  card.innerHTML = `
+    <div class="top">
+      <div class="shot"><img src="${d.img}" alt="${esc(d.alt)}"></div>
+      <div class="info">
+        <span class="fid">${esc(d.feature)}${d.label?" "+esc(d.label):""}</span><span class="mode">${esc(d.mode)}</span>
+        <div class="src">${esc(d.src)}</div>
+        <div class="lab" style="margin-top:16px">Prompt</div>
+        <p class="q">${esc(d.q)}</p>
+      </div>
+    </div>
+    <div class="ans">
+      <div>
+        <div class="hd"><span class="t">PaliGemma 2</span><span class="pill b">${esc(d.bl)}</span></div>
+        <p class="resp b">${esc(d.before)}</p>
+        ${d.bconf ? `<p class="conf">${esc(d.bconf)}</p>` : ''}
+      </div>
+      <div>
+        <div class="hd"><span class="t">With MMDiff</span><span class="pill g">${esc(d.al)}</span></div>
+        <p class="resp g">${esc(d.after)}</p>
+        ${d.aconf ? `<p class="conf">${esc(d.aconf)}</p>` : ''}
+      </div>
+    </div>
+    <p class="why">${esc(d.note)}</p>`;
+  [...tabs.children].forEach((t,j)=>t.setAttribute('aria-selected', j===i?'true':'false'));
+}
+D.forEach((d,i)=>{
+  const b=document.createElement('button');
+  b.className='tab'; b.type='button'; b.setAttribute('role','tab');
+  b.textContent=d.tab; b.onclick=()=>render(i);
+  tabs.appendChild(b);
+});
+render(0);
+</script>
+
+</body>
+</html>
