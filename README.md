@@ -101,10 +101,14 @@ Star or watch to be notified.
 
 ```bibtex
 @inproceedings{batra2026mmdiff,
-  title  = {Multimodal Model Diffing for Feature Discovery and Control},
-  author = {Batra, Hunar and Naghashyar, Lachin and Khakzar, Ashkan
-            and Torr, Philip and Schroeder de Witt, Christian
-            and Venhoff, Constantin and Clark, Ronald},
-  year   = {2026}
+   title  = {Multimodal Model Diffing for Feature Discovery and Control},
+   author = {Batra, Hunar and Naghashyar, Lachin and Khakzar, Ashkan
+             and Torr, Philip and Schroeder de Witt, Christian
+             and Venhoff, Constantin and Clark, Ronald},
+   year   = {2026},
+   eprint = {2608.09928},
+   archivePrefix = {arXiv},
+   primaryClass  = {cs.CV},
+   url    = {https://arxiv.org/abs/2608.09928},
 }
 ```
