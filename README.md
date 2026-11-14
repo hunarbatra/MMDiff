@@ -8,7 +8,7 @@
 Christian Schroeder de Witt, Constantin Venhoff<sup>†</sup>, Ronald Clark<sup>†</sup>
 
 University of Oxford &nbsp;·&nbsp; Microsoft<br>
-<sub>\*equal contribution &nbsp;·&nbsp; <sup>†</sup>equal advising</sub>
+<sub>\*Core contributors &nbsp;·&nbsp; <sup>†</sup>Equal Advising</sub>
 
 [![Checkpoints](https://img.shields.io/badge/%F0%9F%A4%97%20Checkpoints-OX--PIXL%2FMMDiff__SAEs-FFD21E)](https://huggingface.co/OX-PIXL/MMDiff_SAEs)
 [![Project page](https://img.shields.io/badge/Project%20page-pixl.cs.ox.ac.uk-43489F)](https://pixl.cs.ox.ac.uk/mmdiff)
